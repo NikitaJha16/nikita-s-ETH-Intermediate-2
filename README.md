@@ -19,8 +19,7 @@ Before you begin, ensure you have the following installed:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/nikitas-banking-system.git
-   cd nikitas-banking-system
+   git clone https://github.com/NikitaJha16/nikita-s-ETH-Intermediate-2/tree/main
    ```
 
 2. Install dependencies:
