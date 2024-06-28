@@ -23,9 +23,9 @@ export default function HomePage() {
   };
 
   const handleAccount = (account) => {
-    if (account.length > 0) {
+    if (account) {
       console.log("Account connected: ", account);
-      setAccount(account[0]);
+      setAccount(account);
     } else {
       console.log("No account found");
     }
@@ -54,40 +54,53 @@ export default function HomePage() {
 
   const getBalance = async () => {
     if (atm) {
-      const balanceBN = await atm.getBalance();
-      const balanceInEth = ethers.utils.formatEther(balanceBN);
-      const formattedBalance = parseFloat(balanceInEth).toFixed(4);
-      setBalance(formattedBalance);
+      setBalance((await atm.getBalance()).toNumber());
     }
   };
 
-  const depositFiveEth = async () => {
+  const deposit = async () => {
     if (atm) {
-      const tx = await atm.deposit(ethers.utils.parseEther("5.0"));
+      let tx = await atm.deposit(1);
       await tx.wait();
       getBalance();
     }
   };
 
-  const withdrawFiveEth = async () => {
+  const withdraw = async () => {
     if (atm) {
-      const tx = await atm.withdraw(ethers.utils.parseEther("5.0"));
+      let tx = await atm.withdraw(1);
       await tx.wait();
       getBalance();
     }
   };
 
-  const depositTenEth = async () => {
+  const deposit5 = async () => {
     if (atm) {
-      const tx = await atm.deposit(ethers.utils.parseEther("10.0"));
+      let tx = await atm.deposit(5);
       await tx.wait();
       getBalance();
     }
   };
 
-  const withdrawTenEth = async () => {
+  const withdraw5 = async () => {
     if (atm) {
-      const tx = await atm.withdraw(ethers.utils.parseEther("10.0"));
+      let tx = await atm.withdraw(5);
+      await tx.wait();
+      getBalance();
+    }
+  };
+
+  const deposit10 = async () => {
+    if (atm) {
+      let tx = await atm.deposit(10);
+      await tx.wait();
+      getBalance();
+    }
+  };
+
+  const withdraw10 = async () => {
+    if (atm) {
+      let tx = await atm.withdraw(10);
       await tx.wait();
       getBalance();
     }
@@ -104,18 +117,20 @@ export default function HomePage() {
       return <button onClick={connectAccount}>Please connect your Metamask wallet</button>;
     }
 
-    if (balance === undefined) {
+    if (balance == undefined) {
       getBalance();
     }
 
     return (
       <div>
-        <p>Your Account Address : {account}</p>
-        <p>Your Account Balance : {balance} ETH</p>
-        <button onClick={depositFiveEth}>Deposit 5 ETH</button>
-        <button onClick={withdrawFiveEth}>Withdraw 5 ETH</button>
-        <button onClick={depositTenEth}>Deposit 10 ETH</button>
-        <button onClick={withdrawTenEth}>Withdraw 10 ETH</button>
+        <p>Your Account: {account}</p>
+        <p>Your Balance: {balance}</p>
+        <button onClick={deposit}>Deposit 1 ETH</button>
+        <button onClick={withdraw}>Withdraw 1 ETH</button>
+        <button onClick={deposit5}>Deposit 5 ETH</button>
+        <button onClick={withdraw5}>Withdraw 5 ETH</button>
+        <button onClick={deposit10}>Deposit 10 ETH</button>
+        <button onClick={withdraw10}>Withdraw 10 ETH</button>
       </div>
     );
   };
@@ -126,21 +141,24 @@ export default function HomePage() {
 
   return (
     <main className="container">
-      <header><h1>Digital Decentralized Banking Service</h1></header>
+      <header>
+        <h1>Welcome to Nikita's Banking system!</h1>
+      </header>
       {initUser()}
       <style jsx>{`
         .container {
           text-align: center;
-          background-color: yellow; /* Changed background color to yellow */
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          position: relative; /* Ensure relative positioning for absolute children */
+          padding: 20px;
         }
-      `}
-      </style>
+        button {
+          margin: 5px;
+        }
+        :global(body) {
+          background-color: yellow;
+          margin: 0;
+          padding: 0;
+        }
+      `}</style>
     </main>
   );
 }
