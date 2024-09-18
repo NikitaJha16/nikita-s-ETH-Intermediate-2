@@ -1,60 +1,59 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
-//import "hardhat/console.sol";
-
 contract Assessment {
     address payable public owner;
-    uint256 public balance;
+    mapping(address => uint256) public balances;
 
-    event Deposit(uint256 amount);
-    event Withdraw(uint256 amount);
+    event Deposit(address indexed user, uint256 amount);
+    event Withdraw(address indexed user, uint256 amount);
+    event Purchase(address indexed user, string item, uint256 price);
 
-    constructor(uint initBalance) payable {
+    constructor() {
         owner = payable(msg.sender);
-        balance = initBalance;
     }
 
-    function getBalance() public view returns(uint256){
-        return balance;
+    function getBalance() public view returns (uint256) {
+        return balances[msg.sender];
     }
 
-    function deposit(uint256 _amount) public payable {
-        uint _previousBalance = balance;
+    function deposit() public payable {
+        require(msg.value > 0, "Deposit amount must be greater than 0");
 
-        // make sure this is the owner
-        require(msg.sender == owner, "You are not the owner of this account");
+        // Update user's balance
+        balances[msg.sender] += msg.value;
 
-        // perform transaction
-        balance += _amount;
-
-        // assert transaction completed successfully
-        assert(balance == _previousBalance + _amount);
-
-        // emit the event
-        emit Deposit(_amount);
+        // Emit deposit event
+        emit Deposit(msg.sender, msg.value);
     }
 
-    // custom error
     error InsufficientBalance(uint256 balance, uint256 withdrawAmount);
 
     function withdraw(uint256 _withdrawAmount) public {
-        require(msg.sender == owner, "You are not the owner of this account");
-        uint _previousBalance = balance;
-        if (balance < _withdrawAmount) {
-            revert InsufficientBalance({
-                balance: balance,
-                withdrawAmount: _withdrawAmount
-            });
-        }
+        uint256 userBalance = balances[msg.sender];
+        require(userBalance >= _withdrawAmount, "Insufficient balance");
 
-        // withdraw the given amount
-        balance -= _withdrawAmount;
+        // Decrease user balance and transfer the ETH
+        balances[msg.sender] -= _withdrawAmount;
+        payable(msg.sender).transfer(_withdrawAmount);
 
-        // assert the balance is correct
-        assert(balance == (_previousBalance - _withdrawAmount));
+        // Emit withdraw event
+        emit Withdraw(msg.sender, _withdrawAmount);
+    }
 
-        // emit the event
-        emit Withdraw(_withdrawAmount);
+    function purchase(string memory itemName, uint256 itemPrice) public {
+        uint256 userBalance = balances[msg.sender];
+        require(userBalance >= itemPrice, "Insufficient balance for purchase");
+
+        // Deduct the item price from user balance
+        balances[msg.sender] -= itemPrice;
+
+        // Emit purchase event
+        emit Purchase(msg.sender, itemName, itemPrice);
+    }
+
+    // Fallback function to receive ETH directly
+    receive() external payable {
+        deposit();
     }
 }
