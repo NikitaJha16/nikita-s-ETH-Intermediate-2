@@ -28,7 +28,7 @@ export default function HomePage() {
       const account = await ethWallet.request({ method: "eth_accounts" });
       handleAccount(account);
     }
-  }
+  };
 
   const handleAccount = (account) => {
     if (account) {
@@ -37,17 +37,17 @@ export default function HomePage() {
     } else {
       console.log("No account found");
     }
-  }
+  };
 
   const connectAccount = async () => {
     if (!ethWallet) {
-      alert('MetaMask wallet is required to connect');
+      alert("MetaMask wallet is required to connect");
       return;
     }
-  
-    const accounts = await ethWallet.request({ method: 'eth_requestAccounts' });
+
+    const accounts = await ethWallet.request({ method: "eth_requestAccounts" });
     handleAccount(accounts);
-    
+
     getATMContract();
   };
 
@@ -55,15 +55,15 @@ export default function HomePage() {
     const provider = new ethers.providers.Web3Provider(ethWallet);
     const signer = provider.getSigner();
     const atmContract = new ethers.Contract(contractAddress, atmABI, signer);
- 
+
     setATM(atmContract);
-  }
+  };
 
   const getBalance = async () => {
     if (atm) {
       setBalance((await atm.getBalance()).toString());
     }
-  }
+  };
 
   const handleTransaction = async (type) => {
     if (atm && amount) {
@@ -71,14 +71,14 @@ export default function HomePage() {
         setTransactionStatus("Processing...");
         const amountInWei = ethers.utils.parseEther(amount);
         let tx;
-        if (type === 'deposit') {
+        if (type === "deposit") {
           tx = await atm.deposit({ value: amountInWei });
         } else {
           tx = await atm.withdraw(amountInWei);
         }
         await tx.wait();
         getBalance();
-        setTransactionStatus(`Successfully ${type === 'deposit' ? 'deposited' : 'withdrawn'} ${amount} ETH`);
+        setTransactionStatus(`Successfully ${type === "deposit" ? "deposited" : "withdrawn"} ${amount} ETH`);
         setAmount("");
       } catch (error) {
         console.error(`${type} error:`, error);
@@ -87,14 +87,15 @@ export default function HomePage() {
     } else {
       setTransactionStatus("Please enter an amount and ensure your wallet is connected.");
     }
-  }
+  };
 
+  // Updated purchase function to interact with the contract's purchase functionality
   const purchaseItem = async (item) => {
     if (atm) {
       try {
         setTransactionStatus("Processing purchase...");
-        const amountInWei = ethers.utils.parseEther(item.price.toString());
-        let tx = await atm.withdraw(amountInWei);
+        const priceInWei = ethers.utils.parseEther(item.price.toString()); // Convert item price to wei
+        let tx = await atm.purchase(item.name, { value: priceInWei }); // Call purchase function in contract
         await tx.wait();
         getBalance();
         setTransactionStatus(`Successfully purchased ${item.name} for ${item.price} ETH`);
@@ -103,15 +104,15 @@ export default function HomePage() {
         setTransactionStatus(`Error: ${error.message}`);
       }
     }
-  }
+  };
 
   const initUser = () => {
     if (!ethWallet) {
-      return <p className="error">Please install MetaMask to use this ATM and Store.</p>
+      return <p className="error">Please install MetaMask to use this ATM and Store.</p>;
     }
 
     if (!account) {
-      return <button onClick={connectAccount} className="connect-button">Connect Your MetaMask Wallet</button>
+      return <button onClick={connectAccount} className="connect-button">Connect Your MetaMask Wallet</button>;
     }
 
     if (balance === undefined) {
@@ -121,7 +122,7 @@ export default function HomePage() {
     return (
       <div className="user-info">
         <p><strong>Your Account:</strong> {account}</p>
-        <p><strong>Your Balance:</strong> {ethers.utils.formatEther(balance || '0')} ETH</p>
+        <p><strong>Your Balance:</strong> {ethers.utils.formatEther(balance || "0")} ETH</p>
         <div className="transaction-area">
           <input
             type="number"
@@ -131,8 +132,8 @@ export default function HomePage() {
             className="amount-input"
           />
           <div className="button-group">
-            <button onClick={() => handleTransaction('deposit')} className="action-button deposit">Deposit</button>
-            <button onClick={() => handleTransaction('withdraw')} className="action-button withdraw">Withdraw</button>
+            <button onClick={() => handleTransaction("deposit")} className="action-button deposit">Deposit</button>
+            <button onClick={() => handleTransaction("withdraw")} className="action-button withdraw">Withdraw</button>
           </div>
         </div>
         {transactionStatus && <p className="transaction-status">{transactionStatus}</p>}
@@ -148,10 +149,12 @@ export default function HomePage() {
           </div>
         </div>
       </div>
-    )
-  }
+    );
+  };
 
-  useEffect(() => { getWallet(); }, []);
+  useEffect(() => {
+    getWallet();
+  }, []);
 
   return (
     <main className="container">
@@ -286,5 +289,5 @@ export default function HomePage() {
         }
       `}</style>
     </main>
-  )
+  );
 }
