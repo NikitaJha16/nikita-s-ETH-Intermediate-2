@@ -11,6 +11,8 @@ export default function HomePage() {
   const [transactionStatus, setTransactionStatus] = useState(null);
   const [itemPrices, setItemPrices] = useState({});
   const [newItemPrice, setNewItemPrice] = useState({ itemName: "", price: "" });
+  const [basket, setBasket] = useState([]);
+  const [showDetails, setShowDetails] = useState(false);
 
   const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
   const atmABI = atm_abi.abi;
@@ -43,7 +45,7 @@ export default function HomePage() {
 
     const accounts = await ethWallet.request({ method: "eth_requestAccounts" });
     handleAccount(accounts);
-    
+
     getATMContract();
   };
 
@@ -58,7 +60,7 @@ export default function HomePage() {
 
   const getItemPrices = async (atmContract) => {
     const items = ["Apple", "Mug", "HardGlass"];
-    const prices = ["5","3","9"];
+    const prices = {};
     for (let item of items) {
       prices[item] = ethers.utils.formatEther(await atmContract.itemPrices(item));
     }
@@ -109,6 +111,7 @@ export default function HomePage() {
         let tx = await atm.purchase(itemName);
         await tx.wait();
         getBalance();
+        setBasket([...basket, itemName]);
         setTransactionStatus(`Successfully purchased ${itemName}`);
       } catch (error) {
         setTransactionStatus("Error during purchase: " + error.message);
@@ -122,12 +125,10 @@ export default function HomePage() {
         const priceInWei = ethers.utils.parseEther(newItemPrice.price);
         let tx = await atm.setItemPrice(newItemPrice.itemName, priceInWei);
         await tx.wait();
-        // Update the local state with the newly added item price
         setItemPrices((prev) => ({
           ...prev,
           [newItemPrice.itemName]: newItemPrice.price,
         }));
-        // Reset newItemPrice fields after updating
         setNewItemPrice({ itemName: "", price: "" });
         setTransactionStatus(`Price updated for ${newItemPrice.itemName}`);
       } catch (error) {
@@ -173,6 +174,13 @@ export default function HomePage() {
           ))}
         </ul>
 
+        <h2>Your Basket</h2>
+        <ul className="basket-list">
+          {basket.map((item, index) => (
+            <li key={index} className="basket-item">{item}</li>
+          ))}
+        </ul>
+
         <h2>Set Item Prices (Owner Only)</h2>
         <input
           type="text"
@@ -203,13 +211,22 @@ export default function HomePage() {
     <main className="container">
       <header>
         <h1>Welcome to the Ether Bank of Ranchi and Smart Store</h1>
+        <button className="info-button" onClick={() => setShowDetails(!showDetails)}>Info</button>
       </header>
       {initUser()}
+      {showDetails && (
+        <div className="details">
+          <h3>Nikita Jha</h3>
+          <p>22BCS15758</p>
+          <p>Chandigarh University</p>
+          <button className="close-button" onClick={() => setShowDetails(false)}>Close</button>
+        </div>
+      )}
       <style jsx>{`
         .container {
           text-align: center;
           font-family: Arial, sans-serif;
-          background-color: #f8f9fa;
+          background-color: #fff9e6; /* Light cream background */
           padding: 20px;
           border-radius: 10px;
           box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
@@ -217,8 +234,59 @@ export default function HomePage() {
           margin: auto;
         }
 
+        header {
+          background-color: #fff; /* Header background */
+          padding: 10px;
+          border-radius: 10px;
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+          margin-bottom: 20px;
+        }
+
+        .info-button {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          padding: 10px 15px;
+          border: none;
+          border-radius: 5px;
+          background-color: #28a745;
+          color: white;
+          cursor: pointer;
+          transition: background-color 0.3s;
+        }
+
+        .info-button:hover {
+          background-color: #218838;
+        }
+
+        .details {
+          background-color: #ffffff;
+          padding: 20px;
+          border-radius: 10px;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+          margin-top: 20px;
+        }
+
+        .close-button {
+          background-color: #dc3545;
+          color: white;
+          border: none;
+          padding: 10px 15px;
+          border-radius: 5px;
+          cursor: pointer;
+          transition: background-color 0.3s;
+        }
+
+        .close-button:hover {
+          background-color: #c82333;
+        }
+
         .user-info {
           margin-top: 20px;
+          padding: 20px;
+          background-color: #ffffff; /* User info background */
+          border-radius: 10px;
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
 
         .input-field {
@@ -227,6 +295,12 @@ export default function HomePage() {
           border: 1px solid #ced4da;
           margin: 5px 0;
           width: 200px;
+          transition: border-color 0.3s;
+        }
+
+        .input-field:focus {
+          border-color: #80bdff;
+          outline: none;
         }
 
         .action-button, .purchase-button {
@@ -249,13 +323,13 @@ export default function HomePage() {
           color: #343a40;
         }
 
-        .item-list {
+        .item-list, .basket-list {
           list-style-type: none;
           padding: 0;
           margin: 0;
         }
 
-        .item {
+        .item, .basket-item {
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -264,6 +338,10 @@ export default function HomePage() {
           border: 1px solid #e1e1e1;
           border-radius: 5px;
           background-color: #ffffff;
+        }
+
+        .basket-item {
+          justify-content: center;
         }
 
         .status {
