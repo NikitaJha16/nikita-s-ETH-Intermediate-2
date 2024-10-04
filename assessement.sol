@@ -17,9 +17,9 @@ contract Assessment {
         balance = initBalance;
 
         // Initialize some items and their prices
-        itemPrices["ItemA"] = 1 ether;
-        itemPrices["ItemB"] = 0.5 ether;
-        itemPrices["ItemC"] = 0.3 ether;
+        itemPrices["Apple"] = 5 ether;
+        itemPrices["Mug"] = 3 ether;
+        itemPrices["HardGlass"] = 13 ether;
     }
 
     function getBalance() public view returns (uint256) {
