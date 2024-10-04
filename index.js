@@ -9,21 +9,17 @@ export default function HomePage() {
   const [balance, setBalance] = useState(undefined);
   const [amount, setAmount] = useState("");
   const [transactionStatus, setTransactionStatus] = useState(null);
+  const [itemPrices, setItemPrices] = useState({});
+  const [newItemPrice, setNewItemPrice] = useState({ itemName: "", price: "" });
 
-  const contractAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+  const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
   const atmABI = atm_abi.abi;
-
-  const groceryItems = [
-    { name: "Apples", price: 0.001 },
-    { name: "Bread", price: 0.002 },
-    { name: "Milk", price: 0.003 },
-    { name: "Eggs", price: 0.002 },
-  ];
 
   const getWallet = async () => {
     if (window.ethereum) {
       setEthWallet(window.ethereum);
     }
+
     if (ethWallet) {
       const account = await ethWallet.request({ method: "eth_accounts" });
       handleAccount(account);
@@ -47,7 +43,7 @@ export default function HomePage() {
 
     const accounts = await ethWallet.request({ method: "eth_requestAccounts" });
     handleAccount(accounts);
-
+    
     getATMContract();
   };
 
@@ -57,62 +53,96 @@ export default function HomePage() {
     const atmContract = new ethers.Contract(contractAddress, atmABI, signer);
 
     setATM(atmContract);
+    getItemPrices(atmContract);
+  };
+
+  const getItemPrices = async (atmContract) => {
+    const items = ["Apple", "Mug", "HardGlass"];
+    const prices = ["5","3","9"];
+    for (let item of items) {
+      prices[item] = ethers.utils.formatEther(await atmContract.itemPrices(item));
+    }
+    setItemPrices(prices);
   };
 
   const getBalance = async () => {
     if (atm) {
-      setBalance((await atm.getBalance()).toString());
+      const balance = await atm.getBalance();
+      setBalance(ethers.utils.formatEther(balance));
     }
   };
 
-  const handleTransaction = async (type) => {
+  const deposit = async () => {
     if (atm && amount) {
       try {
-        setTransactionStatus("Processing...");
         const amountInWei = ethers.utils.parseEther(amount);
-        let tx;
-        if (type === "deposit") {
-          tx = await atm.deposit({ value: amountInWei });
-        } else {
-          tx = await atm.withdraw(amountInWei);
-        }
+        let tx = await atm.deposit(amountInWei, { value: amountInWei });
         await tx.wait();
         getBalance();
-        setTransactionStatus(`Successfully ${type === "deposit" ? "deposited" : "withdrawn"} ${amount} ETH`);
         setAmount("");
+        setTransactionStatus("Deposit successful.");
       } catch (error) {
-        console.error(`${type} error:`, error);
-        setTransactionStatus(`Error: ${error.message}`);
+        setTransactionStatus("Error during deposit: " + error.message);
       }
-    } else {
-      setTransactionStatus("Please enter an amount and ensure your wallet is connected.");
     }
   };
 
-  // Updated purchase function to interact with the contract's purchase functionality
-  const purchaseItem = async (item) => {
-    if (atm) {
+  const withdraw = async () => {
+    if (atm && amount) {
       try {
-        setTransactionStatus("Processing purchase...");
-        const priceInWei = ethers.utils.parseEther(item.price.toString()); // Convert item price to wei
-        let tx = await atm.purchase(item.name, { value: priceInWei }); // Call purchase function in contract
+        const amountInWei = ethers.utils.parseEther(amount);
+        let tx = await atm.withdraw(amountInWei);
         await tx.wait();
         getBalance();
-        setTransactionStatus(`Successfully purchased ${item.name} for ${item.price} ETH`);
+        setAmount("");
+        setTransactionStatus("Withdrawal successful.");
       } catch (error) {
-        console.error("Purchase error:", error);
-        setTransactionStatus(`Error: ${error.message}`);
+        setTransactionStatus("Error during withdrawal: " + error.message);
+      }
+    }
+  };
+
+  const purchaseItem = async (itemName) => {
+    if (atm) {
+      try {
+        const priceInWei = ethers.utils.parseEther(itemPrices[itemName]);
+        let tx = await atm.purchase(itemName);
+        await tx.wait();
+        getBalance();
+        setTransactionStatus(`Successfully purchased ${itemName}`);
+      } catch (error) {
+        setTransactionStatus("Error during purchase: " + error.message);
+      }
+    }
+  };
+
+  const setItemPrice = async () => {
+    if (atm && newItemPrice.itemName && newItemPrice.price) {
+      try {
+        const priceInWei = ethers.utils.parseEther(newItemPrice.price);
+        let tx = await atm.setItemPrice(newItemPrice.itemName, priceInWei);
+        await tx.wait();
+        // Update the local state with the newly added item price
+        setItemPrices((prev) => ({
+          ...prev,
+          [newItemPrice.itemName]: newItemPrice.price,
+        }));
+        // Reset newItemPrice fields after updating
+        setNewItemPrice({ itemName: "", price: "" });
+        setTransactionStatus(`Price updated for ${newItemPrice.itemName}`);
+      } catch (error) {
+        setTransactionStatus("Error updating price: " + error.message);
       }
     }
   };
 
   const initUser = () => {
     if (!ethWallet) {
-      return <p className="error">Please install MetaMask to use this ATM and Store.</p>;
+      return <p>Please install MetaMask in order to use this ATM.</p>;
     }
 
     if (!account) {
-      return <button onClick={connectAccount} className="connect-button">Connect Your MetaMask Wallet</button>;
+      return <button onClick={connectAccount}>Please connect your MetaMask wallet</button>;
     }
 
     if (balance === undefined) {
@@ -121,33 +151,46 @@ export default function HomePage() {
 
     return (
       <div className="user-info">
-        <p><strong>Your Account:</strong> {account}</p>
-        <p><strong>Your Balance:</strong> {ethers.utils.formatEther(balance || "0")} ETH</p>
-        <div className="transaction-area">
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="Amount in ETH"
-            className="amount-input"
-          />
-          <div className="button-group">
-            <button onClick={() => handleTransaction("deposit")} className="action-button deposit">Deposit</button>
-            <button onClick={() => handleTransaction("withdraw")} className="action-button withdraw">Withdraw</button>
-          </div>
-        </div>
-        {transactionStatus && <p className="transaction-status">{transactionStatus}</p>}
-        <div className="grocery-store">
-          <h2>Grocery Store</h2>
-          <div className="grocery-items">
-            {groceryItems.map((item, index) => (
-              <div key={index} className="grocery-item">
-                <span>{item.name} - {item.price} ETH</span>
-                <button onClick={() => purchaseItem(item)} className="purchase-button">Buy</button>
-              </div>
-            ))}
-          </div>
-        </div>
+        <p>Your Account: {account}</p>
+        <p>Your Balance: {balance} ETH</p>
+        <input
+          type="number"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="Amount in ETH"
+          className="input-field"
+        />
+        <button onClick={deposit} className="action-button">Deposit ETH</button>
+        <button onClick={withdraw} className="action-button">Withdraw ETH</button>
+
+        <h2>Purchase Items</h2>
+        <ul className="item-list">
+          {Object.keys(itemPrices).map((itemName) => (
+            <li key={itemName} className="item">
+              {itemName} - {itemPrices[itemName]} ETH
+              <button onClick={() => purchaseItem(itemName)} className="purchase-button">Purchase</button>
+            </li>
+          ))}
+        </ul>
+
+        <h2>Set Item Prices (Owner Only)</h2>
+        <input
+          type="text"
+          placeholder="Item Name"
+          value={newItemPrice.itemName}
+          onChange={(e) => setNewItemPrice({ ...newItemPrice, itemName: e.target.value })}
+          className="input-field"
+        />
+        <input
+          type="number"
+          placeholder="Price in ETH"
+          value={newItemPrice.price}
+          onChange={(e) => setNewItemPrice({ ...newItemPrice, price: e.target.value })}
+          className="input-field"
+        />
+        <button onClick={setItemPrice} className="action-button">Set Price</button>
+
+        {transactionStatus && <p className="status">{transactionStatus}</p>}
       </div>
     );
   };
@@ -159,133 +202,73 @@ export default function HomePage() {
   return (
     <main className="container">
       <header>
-        <h1>Raashi ATM & Grocery Store</h1>
+        <h1>Welcome to the Ether Bank of Ranchi and Smart Store</h1>
       </header>
       {initUser()}
       <style jsx>{`
         .container {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          font-family: 'Arial', sans-serif;
-          max-width: 800px;
-          margin: 0 auto;
-          padding: 20px;
-          background-color: #f0f0f0;
-          border-radius: 10px;
-          box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        header {
-          background-color: #3498db;
-          color: white;
-          padding: 20px;
-          border-radius: 10px 10px 0 0;
-          width: 100%;
           text-align: center;
+          font-family: Arial, sans-serif;
+          background-color: #f8f9fa;
+          padding: 20px;
+          border-radius: 10px;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+          max-width: 600px;
+          margin: auto;
         }
-        h1 {
+
+        .user-info {
+          margin-top: 20px;
+        }
+
+        .input-field {
+          padding: 10px;
+          border-radius: 5px;
+          border: 1px solid #ced4da;
+          margin: 5px 0;
+          width: 200px;
+        }
+
+        .action-button, .purchase-button {
+          padding: 10px 15px;
+          border: none;
+          border-radius: 5px;
+          background-color: #007bff;
+          color: white;
+          cursor: pointer;
+          transition: background-color 0.3s;
+          margin: 5px;
+        }
+
+        .action-button:hover, .purchase-button:hover {
+          background-color: #0056b3;
+        }
+
+        h2 {
+          margin-top: 20px;
+          color: #343a40;
+        }
+
+        .item-list {
+          list-style-type: none;
+          padding: 0;
           margin: 0;
         }
-        .user-info {
-          background-color: white;
-          padding: 20px;
-          border-radius: 10px;
-          width: 100%;
-          box-shadow: 0 0 5px rgba(0,0,0,0.1);
-        }
-        .transaction-area {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          margin-top: 20px;
-        }
-        .amount-input {
-          padding: 10px;
-          font-size: 16px;
-          border: 1px solid #ddd;
-          border-radius: 5px;
-        }
-        .button-group {
-          display: flex;
-          gap: 10px;
-        }
-        .action-button {
-          flex: 1;
-          padding: 10px;
-          font-size: 16px;
-          color: white;
-          border: none;
-          border-radius: 5px;
-          cursor: pointer;
-          transition: background-color 0.3s;
-        }
-        .deposit {
-          background-color: #2ecc71;
-        }
-        .deposit:hover {
-          background-color: #27ae60;
-        }
-        .withdraw {
-          background-color: #e74c3c;
-        }
-        .withdraw:hover {
-          background-color: #c0392b;
-        }
-        .connect-button {
-          background-color: #3498db;
-          color: white;
-          border: none;
-          padding: 10px 20px;
-          font-size: 16px;
-          border-radius: 5px;
-          cursor: pointer;
-          transition: background-color 0.3s;
-        }
-        .connect-button:hover {
-          background-color: #2980b9;
-        }
-        .transaction-status {
-          margin-top: 20px;
-          padding: 10px;
-          border-radius: 5px;
-          background-color: #f8f9fa;
-          border: 1px solid #dee2e6;
-        }
-        .error {
-          color: #e74c3c;
-        }
-        .grocery-store {
-          margin-top: 30px;
-          background-color: #ecf0f1;
-          padding: 20px;
-          border-radius: 10px;
-        }
-        .grocery-items {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 15px;
-          margin-top: 15px;
-        }
-        .grocery-item {
+
+        .item {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          background-color: white;
           padding: 10px;
+          margin: 5px 0;
+          border: 1px solid #e1e1e1;
           border-radius: 5px;
-          box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+          background-color: #ffffff;
         }
-        .purchase-button {
-          background-color: #f39c12;
-          color: white;
-          border: none;
-          padding: 5px 10px;
-          border-radius: 3px;
-          cursor: pointer;
-          transition: background-color 0.3s;
-        }
-        .purchase-button:hover {
-          background-color: #d35400;
+
+        .status {
+          margin-top: 10px;
+          color: green;
         }
       `}</style>
     </main>
