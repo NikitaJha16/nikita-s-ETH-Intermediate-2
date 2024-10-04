@@ -1,59 +1,89 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
+//import "hardhat/console.sol";
+
 contract Assessment {
     address payable public owner;
-    mapping(address => uint256) public balances;
+    uint256 public balance;
+    mapping(string => uint256) public itemPrices;  // Mapping to store item prices
 
-    event Deposit(address indexed user, uint256 amount);
-    event Withdraw(address indexed user, uint256 amount);
-    event Purchase(address indexed user, string item, uint256 price);
+    event Deposit(uint256 amount);
+    event Withdraw(uint256 amount);
+    event Purchase(string item, uint256 price);  // Event to log purchases
 
-    constructor() {
+    constructor(uint initBalance) payable {
         owner = payable(msg.sender);
+        balance = initBalance;
+
+        // Initialize some items and their prices
+        itemPrices["ItemA"] = 1 ether;
+        itemPrices["ItemB"] = 0.5 ether;
+        itemPrices["ItemC"] = 0.3 ether;
     }
 
     function getBalance() public view returns (uint256) {
-        return balances[msg.sender];
+        return balance;
     }
 
-    function deposit() public payable {
-        require(msg.value > 0, "Deposit amount must be greater than 0");
+    function deposit(uint256 _amount) public payable {
+        uint _previousBalance = balance;
 
-        // Update user's balance
-        balances[msg.sender] += msg.value;
+        // make sure this is the owner
+        require(msg.sender == owner, "You are not the owner of this account");
 
-        // Emit deposit event
-        emit Deposit(msg.sender, msg.value);
+        // perform transaction
+        balance += _amount;
+
+        // assert transaction completed successfully
+        assert(balance == _previousBalance + _amount);
+
+        // emit the event
+        emit Deposit(_amount);
     }
 
+    // custom error
     error InsufficientBalance(uint256 balance, uint256 withdrawAmount);
 
     function withdraw(uint256 _withdrawAmount) public {
-        uint256 userBalance = balances[msg.sender];
-        require(userBalance >= _withdrawAmount, "Insufficient balance");
+        require(msg.sender == owner, "You are not the owner of this account");
+        uint _previousBalance = balance;
+        if (balance < _withdrawAmount) {
+            revert InsufficientBalance({
+                balance: balance,
+                withdrawAmount: _withdrawAmount
+            });
+        }
 
-        // Decrease user balance and transfer the ETH
-        balances[msg.sender] -= _withdrawAmount;
-        payable(msg.sender).transfer(_withdrawAmount);
+        // withdraw the given amount
+        balance -= _withdrawAmount;
 
-        // Emit withdraw event
-        emit Withdraw(msg.sender, _withdrawAmount);
+        // assert the balance is correct
+        assert(balance == (_previousBalance - _withdrawAmount));
+
+        // emit the event
+        emit Withdraw(_withdrawAmount);
     }
 
-    function purchase(string memory itemName, uint256 itemPrice) public {
-        uint256 userBalance = balances[msg.sender];
-        require(userBalance >= itemPrice, "Insufficient balance for purchase");
+    function purchase(string memory itemName) public {
+        uint256 itemPrice = itemPrices[itemName];  // Get the price of the item
+        require(itemPrice > 0, "Item does not exist");  // Ensure the item exists
+        require(balance >= itemPrice, "Insufficient balance for purchase");
 
-        // Deduct the item price from user balance
-        balances[msg.sender] -= itemPrice;
+        // Deduct the item price from balance
+        uint256 _previousBalance = balance;
+        balance -= itemPrice;
+
+        // Assert the balance after purchase
+        assert(balance == (_previousBalance - itemPrice));
 
         // Emit purchase event
-        emit Purchase(msg.sender, itemName, itemPrice);
+        emit Purchase(itemName, itemPrice);
     }
 
-    // Fallback function to receive ETH directly
-    receive() external payable {
-        deposit();
+    // Add or update item prices (only owner can do this)
+    function setItemPrice(string memory itemName, uint256 price) public {
+        require(msg.sender == owner, "Only owner can set item prices");
+        itemPrices[itemName] = price;
     }
 }
